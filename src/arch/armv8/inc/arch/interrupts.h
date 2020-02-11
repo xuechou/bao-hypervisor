@@ -19,7 +19,7 @@
 #include <bao.h>
 #include <arch/gic.h>
 
-#define IPI_CPU_MSG 1
+#define IPI_CPU_MSG 15
 #define MAX_INTERRUPTS GIC_MAX_INTERUPTS
 
 #endif /* __ARCH_INTERRUPTS_H__ */
