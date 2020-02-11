@@ -1,0 +1,104 @@
+From a572accf6349abc893f4d1cfde759689f2dd7497 Mon Sep 17 00:00:00 2001
+From: Angelo Ruocco <angeloruocco90@gmail.com>
+Date: Tue, 11 Feb 2020 12:04:33 +0000
+Subject: [PATCH] SPD, baod: implement SMC calls to control FIQs
+
+---
+ services/spd/baod/baod.mk                  |  1 +
+ services/spd/baod/fiq_controller.c         | 61 ++++++++++++++++++++++
+ services/spd/baod/fiq_controller_private.h |  7 +++
+ 3 files changed, 69 insertions(+)
+ create mode 100644 services/spd/baod/baod.mk
+ create mode 100644 services/spd/baod/fiq_controller.c
+ create mode 100644 services/spd/baod/fiq_controller_private.h
+
+diff --git a/services/spd/baod/baod.mk b/services/spd/baod/baod.mk
+new file mode 100644
+index 00000000..8c6085e0
+--- /dev/null
++++ b/services/spd/baod/baod.mk
+@@ -0,0 +1 @@
++SPD_SOURCES		:=	services/spd/baod/fiq_controller.c
+diff --git a/services/spd/baod/fiq_controller.c b/services/spd/baod/fiq_controller.c
+new file mode 100644
+index 00000000..b2d9b02a
+--- /dev/null
++++ b/services/spd/baod/fiq_controller.c
+@@ -0,0 +1,61 @@
++#include <runtime_svc.h>
++#include <gicv2.h>
++#include <gic_common.h>
++#include <debug.h>
++
++#include "fiq_controller_private.h"
++
++static uintptr_t fiq_controller_handler(uint32_t smc_fid,
++			 u_register_t x1,
++			 u_register_t x2,
++			 u_register_t x3,
++			 u_register_t x4,
++			 void *cookie,
++			 void *handle,
++			 u_register_t flags)
++{
++	switch (smc_fid) {
++	case BAOD_ID_FIQ_SET:
++		gicv2_set_interrupt_priority(x1, GROUP0_PRIO_MSK(x2));
++		gicv2_set_interrupt_type(x1, GICV2_INTR_GROUP0);
++		break;
++
++	case BAOD_ID_FIQ_ACK:
++		x1 = gicv2_acknowledge_interrupt();
++		break;
++
++	case BAOD_ID_FIQ_END:
++		gicv2_end_of_interrupt(x1);
++		break;
++
++	case BAOD_ID_FIQ_RAISE_SGI:
++		gicv2_raise_sgi(x1, x2);
++		break;
++
++	case BAOD_ID_FIQ_GET_PEND:
++		x1 = gicv2_get_pending_interrupt_id();
++		break;
++	}
++
++	SMC_RET1(handle, x1);
++}
++
++int32_t fiq_controller_init()
++{
++	if (gicv2_is_fiq_enabled()) {
++		INFO("FIQ setup\n");
++		return 0;
++	}
++
++	return -1;
++}
++
++DECLARE_RT_SVC(
++	fiq_controller,
++
++	OEN_STD_HYP_START,
++	OEN_STD_HYP_END,
++	SMC_TYPE_FAST,
++	fiq_controller_init,
++	fiq_controller_handler
++);
+diff --git a/services/spd/baod/fiq_controller_private.h b/services/spd/baod/fiq_controller_private.h
+new file mode 100644
+index 00000000..0b3de2d8
+--- /dev/null
++++ b/services/spd/baod/fiq_controller_private.h
+@@ -0,0 +1,7 @@
++#define BAOD_ID_FIQ_SET		0xC5000000
++#define BAOD_ID_FIQ_ACK		0xC5000001
++#define BAOD_ID_FIQ_END		0xC5000002
++#define BAOD_ID_FIQ_RAISE_SGI	0xC5000003
++#define BAOD_ID_FIQ_GET_PEND	0xC5000004
++
++#define GROUP0_PRIO_MSK(p)	(p & ~(0x80))
+-- 
+2.17.1
+
