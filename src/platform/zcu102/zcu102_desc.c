@@ -35,8 +35,8 @@ struct platform_desc platform = {
             * first memory bank, in that case the base address should be
             * changed to 0x80000, and the size shrunk accorindgly.
             */
-            .base = 0x00000000,
-            .size = 0x80000000 - 0x16000
+            .base = 0x80000,
+            .size = 0x80000000 - 0x80000
         },
         {
             .base = 0x800000000,
