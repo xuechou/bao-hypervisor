@@ -6,6 +6,7 @@
  * Authors:
  *      David Cerdeira <davidmcerdeira@gmail.com>
  *      Jose Martins <jose.martins@bao-project.org>
+ *      Angelo Ruocco <angeloruocco90@gmail.com>
  *
  * Bao is free software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License version 2 as published by the Free
@@ -155,9 +156,8 @@ int64_t psci_cpu_on_handler(uint64_t target_cpu, uintptr_t entrypoint,
     return ret;
 }
 
-
-int64_t psci_affinity_info_handler(uint64_t target_affinity, 
-                                                uint64_t lowest_affinity_level)
+int64_t psci_affinity_info_handler(uint64_t target_affinity,
+                                   uint64_t lowest_affinity_level)
 {
     /* return ON, if at least one core in the affinity instance: has been 
     enabled with a call to CPU_ON, and that core has not called CPU_OFF */
@@ -259,20 +259,10 @@ static void psci_save_state(uint64_t wakeup_reason){
      * up before enabling cache to restore basic processor state. 
      */
     cache_flush_range(&cpu.arch.psci_off_state, sizeof(cpu.arch.psci_off_state));
-
-    gicc_save_state(&cpu.arch.psci_off_state.gicc_state);
 }
 
-
-static void psci_restore_state(){
-
-    /**
-     * The majority of the state is already restored in assembly routine
-     *  psci_boot_entry.
-     */
-    
-    gicc_restore_state(&cpu.arch.psci_off_state.gicc_state);
-}
+/* The state is already restored in assembly routine psci_boot_entry */
+static void psci_restore_state() {}
 
 void psci_wake_from_powerdown(){
 

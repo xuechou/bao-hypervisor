@@ -5,6 +5,7 @@
  *
  * Authors:
  *      Jose Martins <jose.martins@bao-project.org>
+ *      Angelo Ruocco <angeloruocco90@gmail.com>
  *
  * Bao is free software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License version 2 as published by the Free
@@ -133,30 +134,30 @@ lower_el_aarch64_sync:
     b   vcpu_arch_entry
 .balign ENTRY_SIZE
 lower_el_aarch64_irq:    
-    VM_EXIT
-    bl  gic_handle
-    b   vcpu_arch_entry
-.balign ENTRY_SIZE
-lower_el_aarch64_fiq:    
     b	.
 .balign ENTRY_SIZE
-lower_el_aarch64_serror: 
-    b	.          
+lower_el_aarch64_fiq:
+    VM_EXIT
+    bl  gic_fiq_handle
+    b   vcpu_arch_entry
+.balign ENTRY_SIZE
+lower_el_aarch64_serror:
+    b	.
 
 /* 
  * Lower EL using AArch32
  */  
-.balign ENTRY_SIZE   
-lower_el_aarch32_sync:   
+.balign ENTRY_SIZE
+lower_el_aarch32_sync:
     b	.
 .balign ENTRY_SIZE
-lower_el_aarch32_irq:    
+lower_el_aarch32_irq:
     b	.
 .balign ENTRY_SIZE
-lower_el_aarch32_fiq:    
+lower_el_aarch32_fiq:
     b	.
 .balign ENTRY_SIZE
-lower_el_aarch32_serror: 
+lower_el_aarch32_serror:
     b	.
 
-.balign ENTRY_SIZE          
+.balign ENTRY_SIZE

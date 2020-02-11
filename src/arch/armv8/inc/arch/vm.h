@@ -5,6 +5,7 @@
  *
  * Authors:
  *      Jose Martins <jose.martins@bao-project.org>
+ *      Angelo Ruocco <angeloruocco90@gmail.com>
  *
  * Bao is free software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License version 2 as published by the Free
@@ -20,13 +21,10 @@
 #include <arch/vgicv2.h>
 #include <arch/psci.h>
 
-typedef struct {
-    vgicd_t vgicd;
-} vm_arch_t;
+typedef struct {} vm_arch_t;
 
 typedef struct {
     uint64_t vmpidr;
-    vgic_priv_t vgicd_priv;
     psci_ctx_t psci_ctx;
 } vcpu_arch_t;
 
@@ -36,6 +34,8 @@ struct arch_regs {
     uint64_t spsr_el2;
 } __attribute__((aligned(16))); // makes size always aligned to 16 to respect
                                 // stack alignment
+
+typedef struct vcpu vcpu_t;
 
 vcpu_t* vm_get_vcpu_by_mpidr(vm_t* vm, uint64_t mpidr);
 void vcpu_arch_entry();

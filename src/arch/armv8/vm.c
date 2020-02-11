@@ -5,6 +5,7 @@
  *
  * Authors:
  *      Jose Martins <jose.martins@bao-project.org>
+ *      Angelo Ruocco <angeloruocco90@gmail.com>
  *
  * Bao is free software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License version 2 as published by the Free
@@ -57,8 +58,6 @@ void vcpu_arch_init(vcpu_t* vcpu, vm_t* vm)
 
     ISB();  // make sure vmid is commited befor tlbi
     tlb_vm_inv_all(vm->id);
-
-    vgic_cpu_init(vcpu);
 }
 
 void vcpu_arch_reset(vcpu_t* vcpu, uint64_t entry)

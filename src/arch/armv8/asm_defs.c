@@ -5,6 +5,7 @@
  *
  * Authors:
  *      Jose Martins <jose.martins@bao-project.org>
+ *      Angelo Ruocco <angeloruocco90@gmail.com>
  *
  * Bao is free software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License version 2 as published by the Free
@@ -57,12 +58,4 @@ void platform_defines()
     DEFINE_OFFSET(PLAT_ARCH_OFF, struct platform_desc, arch);
     DEFINE_OFFSET(PLAT_ARCH_CLUSTERS_OFF, struct arch_platform, clusters);
     DEFINE_OFFSET(PLAT_CLUSTERS_CORES_NUM_OFF, struct clusters, num);
-}
-
-void info_defines() __attribute__((used));
-void info_defines()
-{
-    DEFINE_SIZE(VGICD_SIZE, vgicd_t);
-    DEFINE_SIZE(VGICH_SIZE, gich_t);
-    DEFINE_SIZE(VGIC_IRQ, vgic_int_t);
 }

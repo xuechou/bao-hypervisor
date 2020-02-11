@@ -24,16 +24,11 @@
 #include <arch/sysregs.h>
 #include <vm.h>
 
-void interrupts_arch_init()
+inline void interrupts_arch_init()
 {
     if (cpu.id == CPU_MASTER) {
         mem_map_dev(&cpu.as, (void *)&gicc, platform.arch.gic.gicc_addr,
                     NUM_PAGES(sizeof(gicc)));
-        mem_map_dev(&cpu.as, (void *)&gich, platform.arch.gic.gich_addr,
-                    NUM_PAGES(sizeof(gich)));
-        mem_map_dev(&cpu.as, (void *)gich_alias,
-                    platform.arch.gic.gich_alias_addr,
-                    NUM_PAGES(sizeof(gich) * 8));
         mem_map_dev(&cpu.as, (void *)&gicd, platform.arch.gic.gicd_addr,
                     NUM_PAGES(sizeof(gicd)));
     }
@@ -44,16 +39,14 @@ void interrupts_arch_init()
     if (cpu.id == CPU_MASTER) gic_init();
 
     gic_cpu_init();
-
-    interrupts_cpu_enable(platform.arch.gic.maintenance_id, true);
 }
 
-void interrupts_arch_ipi_send(uint64_t target_cpu, uint64_t ipi_id)
+inline void interrupts_arch_ipi_send(uint64_t target_cpu, uint64_t ipi_id)
 {
-    if (ipi_id < GIC_MAX_SGIS) gicd_send_sgi(target_cpu, ipi_id);
+    if (ipi_id < GIC_MAX_SGIS) gic_fiq_raise_sgi(target_cpu, ipi_id);
 }
 
-void interrupts_arch_cpu_enable(bool en)
+inline void interrupts_arch_cpu_enable(bool en)
 {
     if (en)
         asm volatile("msr DAIFClr, %0\n" ::"I"(PSTATE_DAIF_I_BIT));
@@ -61,34 +54,32 @@ void interrupts_arch_cpu_enable(bool en)
         asm volatile("msr DAIFSet, %0\n" ::"I"(PSTATE_DAIF_I_BIT));
 }
 
-void interrupts_arch_enable(uint64_t int_id, bool en)
+void interrupts_arch_enable(uint64_t id, bool en)
 {
-    gicd_set_enable(int_id, en);
-    gicd_set_prio(int_id, 0x7F);
-    gicd_set_trgt(int_id, 1 << cpu.id);
+    uint8_t prio = 0x7F;
+
+    gicd_set_enable(id, en);
+    gicd_set_prio(id, prio);
+    gicd_set_trgt(id, 1 << cpu.id);
+    gic_set_as_fiq(id, prio);
 }
 
-bool interrupts_arch_check(uint64_t int_id)
+inline bool interrupts_arch_check(uint64_t id)
 {
-    return gicd_get_state(int_id) & PEND;
+    return gic_fiq_get_pend(id);
 }
 
-inline bool interrupts_arch_conflict(bitmap_t interrupt_bitmap, uint64_t int_id)
+inline bool interrupts_arch_conflict(bitmap_t interrupt_bitmap, uint64_t id)
 {
-    return (bitmap_get(interrupt_bitmap, int_id) && int_id > GIC_CPU_PRIV);
+    return (id == IPI_CPU_MSG ||
+            (bitmap_get(interrupt_bitmap, id) && id > GIC_CPU_PRIV));
 }
 
-void interrupts_arch_clear(uint64_t int_id)
-{
-    gicd_set_state(int_id, INV);
-}
+inline void interrupts_arch_clear(uint64_t id) {}
 
-void interrupts_arch_vm_assign(vm_t *vm, uint64_t id)
-{
-    vgic_set_hw(vm, id);
-}
-
-void interrupts_arch_vm_inject(vm_t *vm, uint64_t id, uint64_t source)
-{
-    vgicd_inject(&vm->arch.vgicd, id, source);
-}
+/**
+ * To reduce overhead, the virtual gic interface is not used, and the VMs are
+ * allowed to directly access the cpu controller.
+ */
+inline void interrupts_arch_vm_assign(vm_t *vm, uint64_t id) {}
+inline void interrupts_arch_vm_inject(vm_t *vm, uint64_t id, uint64_t src) {}

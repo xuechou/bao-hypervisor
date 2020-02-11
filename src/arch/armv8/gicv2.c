@@ -15,77 +15,21 @@
  */
 
 #include <arch/gic.h>
-#include <bit.h>
-#include <spinlock.h>
-#include <cpu.h>
-#include <interrupts.h>
 #include <vm.h>
 
 volatile gicd_t gicd __attribute__((section(".devices"), aligned(PAGE_SIZE)));
 volatile gicc_t gicc __attribute__((section(".devices"), aligned(PAGE_SIZE)));
-volatile gich_t gich __attribute__((section(".devices"), aligned(PAGE_SIZE)));
-volatile gich_t gich_alias[8]
-    __attribute__((section(".devices"), aligned(PAGE_SIZE)));
 
 static spinlock_t gicd_lock;
 
-uint64_t NUM_LRS;
 
 static inline void gicc_init()
 {
-    for (int i = 0; i < gich_num_lrs(); i++) {
-        gich.LR[i] = 0;
-    }
-
     gicc.PMR = -1;
     gicc.CTLR |= GICC_CTLR_EN_BIT | GICC_CTLR_EOImodeNS_BIT;
-
-    gich.HCR |= GICH_HCR_LRENPIE_BIT;
 }
 
-void gicc_save_state(gicc_state_t *state)
-{
-    state->CTLR = gicc.CTLR;
-    state->PMR = gicc.PMR;
-    state->BPR = gicc.BPR;
-    state->IAR = gicc.IAR;
-    state->EOIR = gicc.EOIR;
-    state->RPR = gicc.RPR;
-    state->HPPIR = gicc.HPPIR;
-    state->priv_ISENABLER = gicd.ISENABLER[0];
-
-    for (int i = 0; i < GIC_NUM_PRIO_REGS(GIC_CPU_PRIV); i++) {
-        state->priv_IPRIORITYR[i] = gicd.IPRIORITYR[i];
-    }
-
-    state->HCR = gich.HCR;
-    for (int i = 0; i < gich_num_lrs(); i++) {
-        state->LR[i] = gich.LR[i];
-    }
-}
-
-void gicc_restore_state(gicc_state_t *state)
-{
-    gicc.CTLR = state->CTLR;
-    gicc.PMR = state->PMR;
-    gicc.BPR = state->BPR;
-    gicc.IAR = state->IAR;
-    gicc.EOIR = state->EOIR;
-    gicc.RPR = state->RPR;
-    gicc.HPPIR = state->HPPIR;
-    gicd.ISENABLER[0] = state->priv_ISENABLER;
-
-    for (int i = 0; i < GIC_NUM_PRIO_REGS(GIC_CPU_PRIV); i++) {
-        gicd.IPRIORITYR[i] = state->priv_IPRIORITYR[i];
-    }
-
-    gich.HCR = state->HCR;
-    for (int i = 0; i < gich_num_lrs(); i++) {
-        gich.LR[i] = state->LR[i];
-    }
-}
-
-void gic_cpu_init()
+inline void gic_cpu_init()
 {
     for (int i = 0; i < GIC_NUM_INT_REGS(GIC_CPU_PRIV); i++) {
         /**
@@ -109,11 +53,8 @@ void gic_cpu_init()
     gicc_init();
 }
 
-void gic_maintenance_handler(uint64_t arg, uint64_t source);
-
-void gic_init()
+inline void gic_init()
 {
-    NUM_LRS = gich_num_lrs();
     size_t int_num = gic_num_irqs();
 
     /* Bring distributor to known state */
@@ -135,36 +76,28 @@ void gic_init()
     for (int i = GIC_CPU_PRIV; i < GIC_NUM_TARGET_REGS(int_num); i++)
         gicd.ITARGETSR[i] = 0;
 
-    /* ICFGR are platform dependent, lets leave them as is */
-
-    /* No need to setup gicd.NSACR as all interrupts are  setup to group 1 */
-
-    interrupts_reserve(platform.arch.gic.maintenance_id,
-                       gic_maintenance_handler);
+    /* ICFGR are platform dependent, leave them as is */
 
     /* Enable distributor */
     gicd.CTLR |= GICD_CTLR_EN_BIT;
 }
 
-void gic_handle()
+void gic_fiq_handle()
 {
-    uint64_t ack = gicc.IAR;
+    uint64_t ack = gic_fiq_ack();
     uint64_t id = bit_extract(ack, GICC_IAR_ID_OFF, GICC_IAR_ID_LEN);
     uint64_t src = bit_extract(ack, GICC_IAR_CPU_OFF, GICC_IAR_CPU_LEN);
 
     if (id >= 1022) return;
 
-    enum irq_res res = interrupts_handle(id, src);
-
-    gicc.EOIR = ack;
-
-    if (res == HANDLED_BY_HYP) gicc.DIR = ack;
+    interrupts_handle(id, src);
+    gic_fiq_end(id);
 }
 
-void gicd_send_sgi(uint64_t cpu_target, uint64_t sgi_num)
+void gicd_send_sgi(uint64_t sgi, uint8_t trgt, uint8_t filter)
 {
-    gicd.SGIR = (1UL << (GICD_SGIR_CPUTRGLST_OFF + cpu_target)) |
-                (sgi_num & GICD_SGIR_SGIINTID_MSK);
+    gicd.SGIR = (sgi & GICD_SGIR_SGIINTID_MSK) | GICD_SGIR_CPUTRGLST_MSK(trgt) |
+                GICD_SGIR_TRGLSTFLT_MSK(filter);
 }
 
 uint64_t gicd_get_prio(uint64_t int_id)
@@ -237,7 +170,7 @@ static void gicd_set_pend(uint64_t int_id, bool pend)
     spin_unlock(&gicd_lock);
 }
 
-void gicd_set_act(uint64_t int_id, bool act)
+static void gicd_set_act(uint64_t int_id, bool act)
 {
     uint64_t reg_ind = GIC_INT_REG(int_id);
 
@@ -252,7 +185,7 @@ void gicd_set_act(uint64_t int_id, bool act)
     spin_unlock(&gicd_lock);
 }
 
-void gicd_set_state(uint64_t int_id, enum int_state state)
+inline void gicd_set_state(uint64_t int_id, enum int_state state)
 {
     gicd_set_act(int_id, state & ACT);
     gicd_set_pend(int_id, state & PEND);
@@ -272,6 +205,48 @@ void gicd_set_trgt(uint64_t int_id, uint8_t trgt)
     spin_unlock(&gicd_lock);
 }
 
+uint8_t gicd_get_trgt(uint64_t int_id)
+{
+    uint64_t reg_ind = GIC_TARGET_REG(int_id);
+    uint64_t off = GIC_TARGET_OFF(int_id);
+
+    spin_lock(&gicd_lock);
+
+    uint8_t ret = gicd.ITARGETSR[reg_ind] & BIT_MASK(off, GIC_TARGET_BITS);
+
+    spin_unlock(&gicd_lock);
+
+    return ret;
+}
+
+void gicd_set_cfgr(uint64_t int_id, uint8_t cfgr)
+{
+    uint64_t reg_ind = GIC_CONFIG_REG(int_id);
+    uint64_t off = GIC_CONFIG_OFF(int_id);
+    uint32_t mask = BIT_MASK(off, GIC_CONFIG_BITS);
+
+    spin_lock(&gicd_lock);
+
+    gicd.ICFGR[reg_ind] =
+        (gicd.ICFGR[reg_ind] & ~mask) | ((cfgr << off) & mask);
+
+    spin_unlock(&gicd_lock);
+}
+
+uint8_t gicd_get_cfgr(uint64_t int_id)
+{
+    uint64_t reg_ind = GIC_CONFIG_REG(int_id);
+    uint64_t off = GIC_CONFIG_OFF(int_id);
+
+    spin_lock(&gicd_lock);
+
+    uint8_t ret = gicd.ICFGR[reg_ind] & BIT_MASK(off, GIC_CONFIG_BITS);
+
+    spin_unlock(&gicd_lock);
+
+    return ret;
+}
+
 void gicd_set_enable(uint64_t int_id, bool en)
 {
     uint64_t reg_ind = GIC_INT_REG(int_id);
@@ -286,4 +261,18 @@ void gicd_set_enable(uint64_t int_id, bool en)
     }
 
     spin_unlock(&gicd_lock);
+}
+
+bool gicd_enabled(uint64_t int_id)
+{
+    uint64_t reg_ind = GIC_INT_REG(int_id);
+    uint64_t bit = GIC_INT_MASK(int_id);
+
+    spin_lock(&gicd_lock);
+
+    uint64_t enabled = gicd.ISENABLER[reg_ind] & bit;
+
+    spin_unlock(&gicd_lock);
+
+    return enabled;
 }

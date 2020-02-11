@@ -5,7 +5,8 @@
  *
  * Authors:
  *      Jose Martins <jose.martins@bao-project.org>
- * 		David Cerdeira <david.mcerdeira@gmail.com>
+ *      David Cerdeira <david.mcerdeira@gmail.com>
+ *      Angelo Ruocco <angeloruocco90@gmail.com>
  *
  * Bao is free software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License version 2 as published by the Free
@@ -91,7 +92,6 @@ typedef struct {
     uint64_t vttbr_el2;
     uint64_t wakeup_reason;
     uint64_t flat_map;
-    gicc_state_t gicc_state;
 } __attribute__((packed)) psci_off_state_t;
 
 enum wakeup_reason {

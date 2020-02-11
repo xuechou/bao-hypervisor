@@ -5,6 +5,7 @@
  *
  * Authors:
  *      Jose Martins <jose.martins@bao-project.org>
+ *      Angelo Ruocco <angeloruocco90@gmail.com>
  *
  * Bao is free software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License version 2 as published by the Free
@@ -16,48 +17,21 @@
 #ifndef __VGICV2_H__
 #define __VGICV2_H__
 
-#include <bao.h>
 #include <arch/gic.h>
 
+#define GICD_GROUP(addr) ((addr & 0xF80) >> 7)
+#define GICD_REG_IND(REG) (offsetof(gicd_t, REG) & GIC_MISC_REG_MASK)
+#define GICD_REG_GROUP(REG) GICD_GROUP(offsetof(gicd_t, REG))
+#define GICD_IS_REG(REG, offset)            \
+    (((offset) >= offsetof(gicd_t, REG)) && \
+     (offset) < (offsetof(gicd_t, REG) + sizeof(gicd.REG)))
+
+#define GICD_CALL(ACCESS_FUNCTION, id, ...) \
+    vgic_is_owner(id) ? gicd_##ACCESS_FUNCTION(id, ##__VA_ARGS__) : 0
+
 typedef struct vm vm_t;
-typedef struct vcpu vcpu_t;
 struct gic_dscrp;
 
-typedef struct {
-    spinlock_t lock;
-    vcpu_t *owner;
-
-    uint16_t id;
-    bool hw;
-    bool in_lr;
-    uint64_t lr;
-
-    bool enabled;
-    uint8_t state;
-    uint8_t prio;
-    uint8_t targets;
-} vgic_int_t;
-
-typedef struct {
-    spinlock_t lock;
-    uint32_t CTLR;
-    uint32_t TYPER;
-    uint32_t IIDR;
-    vgic_int_t interrupts[GIC_MAX_SPIS];
-} vgicd_t;
-
-typedef struct {
-    gich_t gich;
-    struct {
-        uint8_t pend;
-        uint8_t act;
-    } sgis[GIC_MAX_SGIS];
-    vgic_int_t interrupts[GIC_CPU_PRIV];
-} vgic_priv_t;
-
 void vgic_init(vm_t *vm, const struct gic_dscrp *gic_dscrp);
-void vgic_cpu_init(vcpu_t *vcpu);
-void vgic_set_hw(vm_t *vm, uint64_t id);
-void vgicd_inject(vgicd_t *vgicd, uint64_t id, uint64_t source);
 
 #endif /* __VGICV2_H__ */

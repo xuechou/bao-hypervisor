@@ -5,6 +5,7 @@
  *
  * Authors:
  *      Jose Martins <jose.martins@bao-project.org>
+ *      Angelo Ruocco <angeloruocco90@gmail.com>
  *
  * Bao is free software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License version 2 as published by the Free
@@ -49,8 +50,7 @@ void vmm_arch_init()
 
     MSR(VTCR_EL2, vtcr);
 
-    uint64_t hcr = HCR_VM_BIT | HCR_RW_BIT | HCR_IMO_BIT | HCR_FMO_BIT |
-                   HCR_TSC_BIT; /* trap smc */
+    uint64_t hcr = HCR_VM_BIT | HCR_RW_BIT | HCR_FMO_BIT | HCR_TSC_BIT;
 
     MSR(HCR_EL2, hcr);
 }
