@@ -3,7 +3,7 @@ ARCH:=riscv
 # CPU definition
 CPU:=
 
-drivers := sbi_uart
+drivers := zynq_uart
 
 platform-cppflags =
 platform-cflags = 
