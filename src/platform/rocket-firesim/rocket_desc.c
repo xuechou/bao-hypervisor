@@ -8,7 +8,7 @@ struct platform_desc platform = {
     .regions =  (struct mem_region[]) {
         {
             .base = 0x80200000,
-            .size = 0x10000000 - 0x200000
+            .size = 0x40000000 - 0x200000
         }
     },
 
