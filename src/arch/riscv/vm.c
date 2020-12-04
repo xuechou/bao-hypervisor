@@ -42,8 +42,7 @@ void vcpu_arch_reset(vcpu_t *vcpu, uint64_t entry)
     memset(vcpu->regs, 0, sizeof(struct arch_regs));
 
     vcpu->regs->hstatus = HSTATUS_SPV | HSTATUS_VSXL_64;
-    vcpu->regs->sstatus = SSTATUS_SIE_BIT | SSTATUS_SPP_BIT | SSTATUS_SPIE_BIT |
-                          SSTATUS_FS_DIRTY | SSTATUS_XS_DIRTY;
+    vcpu->regs->sstatus = SSTATUS_SPP_BIT | SSTATUS_FS_DIRTY | SSTATUS_XS_DIRTY;
     vcpu->regs->sepc = entry;
     vcpu->regs->a0 = vcpu->arch.hart_id = vcpu->id;
     vcpu->regs->a1 = 0;  // according to sbi it should be the dtb load address
@@ -233,15 +232,10 @@ bool vm_readmem(vm_t *vm, void *dest, uintptr_t vmaddr, size_t n, bool exec)
 
 void vcpu_arch_run(vcpu_t *vcpu){
 
-    spin_lock(&vcpu->arch.sbi_ctx.lock);
-    uint64_t state = vcpu->arch.sbi_ctx.state;
-    spin_unlock(&vcpu->arch.sbi_ctx.lock);
-
-    if(state == STARTED){
+    if(vcpu->arch.sbi_ctx.state == STARTED){
         vcpu_arch_entry();
-    } else if (state == STOPPED) {
+    } else {
         cpu_idle();
     }    
 
-    ERROR("cpu%d: inconsistent sbi hart state", cpu.id);
 }

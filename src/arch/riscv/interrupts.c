@@ -78,7 +78,8 @@ void interrupts_arch_enable(uint64_t int_id, bool en)
         else
             CSRC(sie, SIE_STIE);
     } else {
-        plic_set_enbl(cpu.arch.hart_id, int_id, en);
+        plic_set_enbl(cpu.arch.plic_cntxt, int_id, en);
+        plic_set_prio(int_id, 0xFE);
     }
 }
 
@@ -103,7 +104,6 @@ void interrupts_arch_handle()
             break;
         case SCAUSE_CODE_SEI:
             plic_handle();
-            break;
             break;
         default:
             // WARNING("unkown interrupt");
@@ -135,9 +135,12 @@ void interrupts_arch_clear(uint64_t int_id)
     }
 }
 
-void interrupts_arch_vm_assign(vm_t *vm, uint64_t id) {}
+void interrupts_arch_vm_assign(vm_t *vm, uint64_t id)
+{
+    vplic_set_hw(vm, id);
+}
 
 void interrupts_arch_vm_inject(vm_t *vm, uint64_t id, uint64_t source)
 {
-    vplic_inject(&vm->arch.vplic, id);
+    vplic_inject(cpu.vcpu, id);
 }

@@ -31,7 +31,7 @@ typedef struct {
     uint32_t prio[PLIC_NUM_PRIO_REGS];
     uint32_t pend[PLIC_NUM_PEND_REGS];
     uint32_t enbl[PLIC_PLAT_CNTXT_NUM][PLIC_NUM_ENBL_REGS];
-} __attribute__((__packed__)) plic_global_t;
+} __attribute__((__packed__, aligned(PAGE_SIZE))) plic_global_t;
 
 typedef struct {
     uint32_t threshold;
@@ -40,7 +40,7 @@ typedef struct {
         uint32_t complete;
     };
     uint8_t res[0x1000 - 0x0008];
-} __attribute__((__packed__)) plic_hart_t;
+} __attribute__((__packed__, aligned(PAGE_SIZE))) plic_hart_t;
 
 extern volatile plic_global_t plic_global;
 extern volatile plic_hart_t plic_hart[PLIC_PLAT_CNTXT_NUM];
@@ -49,11 +49,13 @@ extern int PLIC_IMPL_INTERRUPTS;
 void plic_init();
 void plic_cpu_init();
 void plic_handle();
-void plic_set_enbl(int cntxt, int int_id, bool en);
-bool plic_get_enbl(int cntxt, int int_id);
-void plic_set_prio(int int_id, int prio);
-int plic_get_prio(int int_id);
-bool plic_get_pend(int int_id);
+void plic_set_enbl(unsigned cntxt, unsigned int_id, bool en);
+bool plic_get_enbl(unsigned cntxt, unsigned int_id);
+void plic_set_prio(unsigned int_id, uint32_t prio);
+uint32_t plic_get_prio(unsigned int_id);
+void plic_set_threshold(unsigned cntxt, uint32_t threshold);
+uint32_t plic_get_threshold(unsigned int_id);
+bool plic_get_pend(unsigned int_id);
 
 typedef struct {
     int hart_id;
