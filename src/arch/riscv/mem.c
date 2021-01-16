@@ -18,44 +18,39 @@
 #include <platform.h>
 #include <cpu.h>
 
-void as_arch_init(addr_space_t *as) {}
+static inline void as_map_physical_identity(addr_space_t *as) {
+    const int lvl = 0;
+    size_t lvl_size = pt_lvlsize(&as->pt, lvl);
+    uintptr_t lvl_mask = ~(lvl_size - 1);
+    pte_t *pt = as->pt.root;
 
-void mem_arch_init(uint64_t load_addr, uint64_t config_addr)
-{
-    if (cpu.id == CPU_MASTER) {
-        const int lvl = 0;
-        size_t lvl_size = pt_lvlsize(&cpu.as.pt, lvl);
-        uintptr_t lvl_mask = ~(lvl_size - 1);
-        pte_t *pt = cpu.as.pt.root;
+    /**
+     *  Create identity mapping of existing physical memory regions using
+     * the largest pages possible pte (in riscv this is always at level 0
+     * pt).
+     */
 
-        /**
-         *  Create identity mapping of existing physical memory regions using
-         * the largest pages possible pte (in riscv this is always at level 0
-         * pt).
-         */
+    for (int i = 0; i < platform.region_num; i++) {
+        struct mem_region *reg = &platform.regions[i];
+        uintptr_t base = reg->base & lvl_mask;
+        uintptr_t top = (reg->base + reg->size) & lvl_mask;
+        int num_entries = ((top - base - 1) / lvl_size) + 1;
 
-        for (int i = 0; i < platform.region_num; i++) {
-            struct mem_region *reg = &platform.regions[i];
-            uintptr_t base = reg->base & lvl_mask;
-            uintptr_t top = (reg->base + reg->size) & lvl_mask;
-            int num_entries = ((top - base - 1) / lvl_size) + 1;
-
-            uintptr_t addr = base;
-            for (int j = 0; j < num_entries; j++) {
-                int index = PTE_INDEX(lvl, addr);
-                pte_set(&pt[index], addr, PTE_SUPERPAGE, PTE_HYP_FLAGS);
-                addr += lvl_size;
-            }
+        uintptr_t addr = base;
+        for (int j = 0; j < num_entries; j++) {
+            int index = PTE_INDEX(lvl, addr);
+            pte_set(&pt[index], addr, PTE_SUPERPAGE, PTE_HYP_FLAGS);
+            addr += lvl_size;
         }
     }
-
-    cpu_sync_barrier(&cpu_glb_sync);
 }
 
-typedef struct cpu cpu_t;
-void switch_space(cpu_t *new_cpu, uint64_t new_rootpt_pa)
-{
-    ERROR("switch address space not implemented");
+void as_arch_init(addr_space_t *as) {
+
+    if(as->type == AS_HYP) {
+        as_map_physical_identity(as);
+    }
+
 }
 
 bool mem_translate(addr_space_t *as, void *va, uint64_t *pa)
