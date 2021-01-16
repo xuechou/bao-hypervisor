@@ -1,1 +1,1 @@
-boards-objs-y+=rocket_desc.o
+boards-objs-y+=rocket_desc.o cache.o

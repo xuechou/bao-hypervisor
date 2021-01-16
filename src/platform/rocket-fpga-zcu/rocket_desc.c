@@ -16,6 +16,16 @@ struct platform_desc platform = {
         .base = 0xff000000
     },
 
+    .cache = {
+        .lvls = 2,
+        .min_shared_lvl = 1,
+        .type = {SEPARATE, UNIFIED},
+        .indexed = {{VIPT, VIPT}, {PIPT}},
+        .line_size = {{64, 64}, {64}},
+        .assoc = {{4, 4}, {8}},
+        .numset = {{64, 64}, {1024}}
+    },
+
     .arch = {
         .plic_base = 0xc000000,
     }
