@@ -47,7 +47,6 @@ core_dir=$(src_dir)/core
 platforms_dir=$(src_dir)/platform
 configs_dir=$(cur_dir)/configs
 CONFIG_REPO?=$(configs_dir)
-config:=$(CONFIG_REPO)/$(CONFIG)/$(CONFIG).bin
 
 ifeq ($(CONFIG_BUILTIN), y)
 ifeq ($(CONFIG),)
@@ -76,19 +75,19 @@ cpu_impl_dir=$(cpu_arch_dir)/impl/$(CPU)
 
 
 build_dir:=$(cur_dir)/build/$(PLATFORM)
-builtin_build_dir:=$(cur_dir)/build/builtin-configs
+builtin_build_dir:=$(build_dir)/builtin-configs
 bin_dir:=$(cur_dir)/bin/$(PLATFORM)
 ifeq ($(CONFIG_BUILTIN), y)
 bin_dir:=$(bin_dir)/builtin-configs/$(CONFIG)
 endif
 directories:=$(build_dir) $(bin_dir) $(builtin_build_dir) 
 
-SRC_DIRS:= $(cpu_arch_dir) $(cpu_impl_dir) $(lib_dir) $(core_dir)\
+src_dirs:= $(cpu_arch_dir) $(cpu_impl_dir) $(lib_dir) $(core_dir)\
 	$(platform_dir) $(addprefix $(drivers_dir)/, $(drivers))
-INC_DIRS:=$(addsuffix /inc, $(SRC_DIRS))
+inc_dirs:=$(addsuffix /inc, $(src_dirs))
 
 # Setup list of objects for compilation
--include $(addsuffix /objects.mk, $(SRC_DIRS))
+-include $(addsuffix /objects.mk, $(src_dirs))
 
 objs-y:=
 objs-y+=$(addprefix $(cpu_arch_dir)/, $(cpu-objs-y))
@@ -104,8 +103,8 @@ endif
 deps+=$(patsubst %.o,%.d,$(objs-y))
 objs-y:=$(patsubst $(src_dir)%, $(build_dir)%, $(objs-y))
 
-BUILD_DIRS:=$(patsubst $(src_dir)%, $(build_dir)%, $(SRC_DIRS) $(INC_DIRS))
-directories+=$(BUILD_DIRS)
+build_dirs:=$(patsubst $(src_dir)%, $(build_dir)%, $(src_dirs) $(inc_dirs))
+directories+=$(build_dirs)
 
 
 # Setup list of targets for compilation
@@ -114,38 +113,40 @@ targets-y+=$(bin_dir)/$(PROJECT_NAME).bin
 
 # Generated files variables
 
-LD_SCRIPT:= $(cur_dir)/linker.ld
-LD_SCRIPT_TEMP:= $(build_dir)/linker_temp.ld
-deps+=$(LD_SCRIPT_TEMP).d
+ld_script:= $(src_dir)/linker.ld
+ld_script_temp:= $(build_dir)/linker_temp.ld
+deps+=$(ld_script_temp).d
 
-ASM_DEFS_SRC:=$(cpu_arch_dir)/asm_defs.c
-ASM_DEFS_HDR:=$(patsubst $(src_dir)%, $(build_dir)%, \
+asm_defs_src:=$(cpu_arch_dir)/asm_defs.c
+asm_defs_hdr:=$(patsubst $(src_dir)%, $(build_dir)%, \
 	$(cpu_arch_dir))/inc/asm_defs.h
-INC_DIRS+=$(patsubst $(src_dir)%, $(build_dir)%, $(cpu_arch_dir))/inc
-deps+=$(ASM_DEFS_HDR).d
+inc_dirs+=$(patsubst $(src_dir)%, $(build_dir)%, $(cpu_arch_dir))/inc
+deps+=$(asm_defs_hdr).d
 
 gens:=
-gens+=$(ASM_DEFS_HDR)
+gens+=$(asm_defs_hdr)
 
 # Toolchain flags
-cppflags+=$(addprefix -I, $(INC_DIRS)) $(arch-cppflags) $(platform-cppflags)
-vpath:.=cppflags
-cflags= -O$(OPTIMIZATIONS) -Wall -ffreestanding -std=gnu11 $(arch-cflags)\
-	$(platform-cflags) $(cppflags)
-ifeq ($(DEBUG), y)
-	cflags += -g
-endif
-asflags:= $(cflags) $(arch-asflags) $(platform-asflags)
-ldflags:= -build-id=none -nostdlib $(arch-ldflags) $(platform-ldflags)
+override CPPFLAGS+=$(addprefix -I, $(inc_dirs)) $(arch-cppflags) $(platform-cppflags)
+vpath:.=CPPFLAGS
 
-# Default rule "make"
+ifeq ($(DEBUG), y)
+	debug_flags:=-g
+endif
+
+override CFLAGS+=-O$(OPTIMIZATIONS) -Wall -Werror -ffreestanding -std=gnu11 \
+	 -mstrict-align -fno-pic $(arch-cflags) $(platform-cflags) $(CPPFLAGS) \
+	 $(debug_flags)
+
+override ASFLAGS+=$(CFLAGS) $(arch-asflags) $(platform-asflags)
+override LDFLAGS+=-build-id=none -nostdlib $(arch-ldflags) $(plattform-ldflags)
+
 .PHONY: all
 all: $(targets-y)
 	
-$(bin_dir)/$(PROJECT_NAME).elf: $(gens) $(objs-y) $(LD_SCRIPT_TEMP)
+$(bin_dir)/$(PROJECT_NAME).elf: $(gens) $(objs-y) $(ld_script_temp)
 	@echo "Linking			$(patsubst $(cur_dir)/%, %, $@)"
-	@$(ld) $(ldflags) -T$(LD_SCRIPT_TEMP) $(objs-y) -o $@
-#	@$(size) $@
+	@$(ld) $(LDFLAGS) -T$(ld_script_temp) $(objs-y) -o $@
 	@$(objdump) -S --wide $@ > $(basename $@).asm
 	@$(readelf) -a --wide $@ > $@.txt
 
@@ -154,56 +155,56 @@ ifneq ($(DEBUG), y)
 	@$(sstrip) -s $@
 endif
 
-$(LD_SCRIPT_TEMP):
-	@echo "Pre-processing		$(patsubst $(cur_dir)/%, %, $(LD_SCRIPT))"
-	@$(cc) -E $(addprefix -I, $(INC_DIRS)) -x assembler-with-cpp $(LD_SCRIPT) \
-		| grep -v '^\#' > $(LD_SCRIPT_TEMP)
+$(ld_script_temp):
+	@echo "Pre-processing		$(patsubst $(cur_dir)/%, %, $(ld_script))"
+	@$(cc) -E $(addprefix -I, $(inc_dirs)) -x assembler-with-cpp $(ld_script) \
+		| grep -v '^\#' > $(ld_script_temp)
 
 ifeq (, $(findstring $(MAKECMDGOALS), clean $(submakes)))
 -include $(deps)
 endif
 
-$(LD_SCRIPT_TEMP).d: $(LD_SCRIPT) 
+$(ld_script_temp).d: $(ld_script) 
 	@echo "Creating dependecy	$(patsubst $(cur_dir)/%, %, $<)"
-	@$(cc) -x assembler-with-cpp  -MM -MT "$(LD_SCRIPT_TEMP) $@" \
-		$(addprefix -I, $(INC_DIRS))  $< > $@
+	@$(cc) -x assembler-with-cpp  -MM -MT "$(ld_script_temp) $@" \
+		$(addprefix -I, $(inc_dirs))  $< > $@
 
-$(build_dir)/%.d : $(src_dir)/%.[c,S]
+$(build_dir)/%.d : $(src_dir)/%.[c,S] | $(gens)
 	@echo "Creating dependecy	$(patsubst $(cur_dir)/%, %, $<)"
-	@$(cc) -MM -MG -MT "$(patsubst %.d, %.o, $@) $@"  $(cppflags) $< > $@	
+	@$(cc) -MM -MG -MT "$(patsubst %.d, %.o, $@) $@"  $(CPPFLAGS) $< > $@	
 
 $(objs-y):
 	@echo "Compiling source	$(patsubst $(cur_dir)/%, %, $<)"
-	@$(cc) $(cflags) -c $< -o $@
+	@$(cc) $(CFLAGS) -c $< -o $@
 
 %.bin: %.elf
 	@echo "Generating binary	$(patsubst $(cur_dir)/%, %, $@)"
 	@$(objcopy) -S -O binary $< $@
 
-#generate assembly macro definitions from arch/$(ARCH)/$(ASM_DEFS_SRC) if such
+#Generate assembly macro definitions from arch/$(ARCH)/$(asm_defs_src) if such
 #	file exists
 
-ifneq ($(wildcard $(ASM_DEFS_SRC)),)
-$(ASM_DEFS_HDR): $(ASM_DEFS_SRC)
+ifneq ($(wildcard $(asm_defs_src)),)
+$(asm_defs_hdr): $(asm_defs_src)
 	@echo "Generating header	$(patsubst $(cur_dir)/%, %, $@)"
-	@$(cc) -S $(cflags) $< -o - \
+	@$(cc) -S $(CFLAGS) $< -o - \
 		| awk '($$1 == "->") { print "#define " $$2 " " $$3 }' > $@
 
-$(ASM_DEFS_HDR).d: $(ASM_DEFS_SRC)
+$(asm_defs_hdr).d: $(asm_defs_src)
 	@echo "Creating dependecy	$(patsubst $(cur_dir)/%, %,\
 		 $(patsubst %.d,%, $@))"
-	@$(cc) -MM -MT "$(patsubst %.d,%, $@)" $(addprefix -I, $(INC_DIRS)) $< > $@	
-endif
-
-ifeq ($(CONFIG_BUILTIN), y)
-cppflags+=-DCONFIG_BIN=$(config)
-builtin-config-src:=$(core_dir)/builtin-config.S
-$(builtin-config-obj): $(builtin-config-src) $(config)
+	@$(cc) -MM -MT "$(patsubst %.d,%, $@)" $(addprefix -I, $(inc_dirs)) $< > $@	
 endif
 
 ifdef CONFIG
-all: $(config)
 include $(configs_dir)/configs.mk
+all: config
+endif
+
+ifeq ($(CONFIG_BUILTIN), y)
+override CPPFLAGS+=-DCONFIG_BIN=$(CONFIG_BIN)
+builtin-config-src:=$(core_dir)/builtin-config.S
+$(builtin-config-obj): $(builtin-config-src) $(CONFIG_BIN)
 endif
 
 #Generate directories for object, dependency and generated files
