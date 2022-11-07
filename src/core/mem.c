@@ -71,7 +71,7 @@ struct {
 typedef struct {
     node_t node;  // must be first element
     uint64_t base;
-    size_t size;
+    size_t size; // 单位是page
     size_t free;
     size_t last;
     bitmap_t bitmap;
@@ -95,6 +95,9 @@ static inline uint64_t pp_next_clr(uint64_t base, int from, uint64_t colors)
     return index;
 }
 
+/*
+    回收物理页：遍历page_pool_list，找到包含该物理页的page pool，然后清除对应的bitmap,实现回收
+*/
 static void mem_free_ppages(ppages_t *ppages)
 {
     list_foreach(page_pool_list, page_pool_t, pool)
@@ -197,6 +200,9 @@ static bool pp_alloc_clr(page_pool_t *pool, size_t n, uint64_t colors,
     return ok;
 }
 
+/*
+    给定一个page pool，分配n个物理页，并置位对应的bitmap
+*/
 static bool pp_alloc(page_pool_t *pool, size_t n, bool aligned,
                      ppages_t *ppages)
 {
@@ -260,6 +266,9 @@ static bool pp_alloc(page_pool_t *pool, size_t n, bool aligned,
     return ok;
 }
 
+/*
+    分配物理页：遍历page_pool_list，分配大小为n的物理页
+*/
 ppages_t mem_alloc_ppages(uint64_t colors, size_t n, bool aligned)
 {
     ppages_t pages = {.size = 0};
@@ -267,7 +276,7 @@ ppages_t mem_alloc_ppages(uint64_t colors, size_t n, bool aligned)
     list_foreach(page_pool_list, page_pool_t, pool)
     {
         bool ok = (!all_clrs(colors) && !aligned)
-                      ? pp_alloc_clr(pool, n, colors, &pages)
+                      ? pp_alloc_clr(pool, n, colors, &pages) // TODO:
                       : pp_alloc(pool, n, aligned, &pages);
         if (ok) break;
     }
@@ -889,18 +898,24 @@ bool root_pool_set_up_bitmap(uint64_t load_addr)
     size_t image_size = (size_t)(&_image_end - &_image_start);
     size_t config_size = (size_t)(&_config_end - &_config_start);
     size_t cpu_size = platform.cpu_num * cpu_boot_alloc_size();
-
+    
+    // 计算存储bitmap需要多少个物理页, root_pool.size的单位是page
     uint64_t bitmap_size = root_pool.size / (8 * PAGE_SIZE) +
                            ((root_pool.size % (8 * PAGE_SIZE) != 0) ? 1 : 0);
     if (root_pool.size <= bitmap_size) return false;
+    
+    // root_pool.bitmap的物理地址，位于image,config,cpu privite的后面
     uint64_t bitmap_base = load_addr + image_size + config_size + cpu_size;
 
+    // 通过root_pool.bitmap的起始地址和大小，构造一个物理页，该页大小不一定是4k
     ppages_t bitmap_pp = mem_ppages_get(bitmap_base, bitmap_size);
+    // 分配虚拟页，来保存bitmap TODO:
     bitmap_t root_bitmap =
         mem_alloc_vpage(&cpu.as, SEC_HYP_GLOBAL, NULL, bitmap_size);
     if (root_bitmap == NULL) return false;
 
     root_pool.bitmap = root_bitmap;
+    // 虚拟页映射到物理页
     mem_map(&cpu.as, root_pool.bitmap, &bitmap_pp, bitmap_size, PTE_HYP_FLAGS);
     memset(root_pool.bitmap, 0, bitmap_size * PAGE_SIZE);
 
@@ -923,6 +938,9 @@ bool pp_root_reserve_hyp_mem(uint64_t load_addr)
     return image_reserved && cpu_reserved;
 }
 
+/*
+    初始化root_pool
+*/
 static bool pp_root_init(uint64_t load_addr, struct mem_region *root_region)
 {
     memset(&root_pool, 0, sizeof(page_pool_t));
@@ -931,7 +949,7 @@ static bool pp_root_init(uint64_t load_addr, struct mem_region *root_region)
     root_pool.size =
         root_region->size / PAGE_SIZE; /* TODO: what if not aligned? */
     root_pool.free = root_pool.size;
-
+    // 设置 root_pool.bitmap
     if (!root_pool_set_up_bitmap(load_addr)) {
         return false;
     }
@@ -943,6 +961,9 @@ static bool pp_root_init(uint64_t load_addr, struct mem_region *root_region)
     return true;
 }
 
+/*
+    初始化non-root page pool
+*/
 static void pp_init(page_pool_t *pool, uint64_t base, size_t size)
 {
     ppages_t pages;
@@ -952,10 +973,11 @@ static void pp_init(page_pool_t *pool, uint64_t base, size_t size)
     memset(pool, 0, sizeof(page_pool_t));
     pool->base = ALIGN(base, PAGE_SIZE);
     pool->size = NUM_PAGES(size);
+    // 1 bit表示1 page，bitmap_size是所需的字节数
     uint64_t bitmap_size =
-        pool->size / (8 * PAGE_SIZE) + !!(pool->size % (8 * PAGE_SIZE) != 0);
+        pool->size / (8 * PAGE_SIZE) + !!(pool->size % (8 * PAGE_SIZE) != 0); // FIXME: why !!
 
-    if (size <= bitmap_size) return;
+    if (size <= bitmap_size) return; // 可能发生嘛？
 
     pages = mem_alloc_ppages(cpu.as.colors, bitmap_size, false);
     if (pages.size != bitmap_size) return;
@@ -1091,6 +1113,9 @@ bool mem_init_vm_config(uint64_t config_addr)
     return true;
 }
 
+/*
+    platform.regions[]中包含bao image的就是 root_mem_region
+*/
 struct mem_region *mem_find_root_region(uint64_t load_addr)
 {
     size_t image_size = (size_t)(&_image_end - &_image_start);
@@ -1110,6 +1135,11 @@ struct mem_region *mem_find_root_region(uint64_t load_addr)
     return root_mem_region;
 }
 
+/*
+    root_pool是platform.regions[]中包含bao image的那个region
+    每个region只描述了一段物理内存的start addr和size
+    region转换为page pool，需要添加bitmap的管理
+*/
 bool mem_setup_root_pool(uint64_t load_addr,
                          struct mem_region **root_mem_region)
 {
