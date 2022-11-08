@@ -17,6 +17,9 @@
 #include <cpu.h>
 #include <arch/sysregs.h>
 
+/*
+    初始化给定“地址空间的页表”
+*/
 void as_arch_init(addr_space_t* as)
 {
     uint64_t index;
@@ -29,11 +32,14 @@ void as_arch_init(addr_space_t* as)
     if (as->type == AS_HYP_CPY || as->type == AS_VM) {
         index = PT_VM_REC_IND;
     } else {
-        index = PT_CPU_REC_IND;
+        index = PT_CPU_REC_IND; // TODO: why ???
     }
     pt_set_recursive(&as->pt, index);
 }
 
+/*
+    已知VA，求PA
+*/
 bool mem_translate(addr_space_t* as, void* va, uint64_t* pa)
 {
     uint64_t par = 0, par_saved = 0;
@@ -42,8 +48,9 @@ bool mem_translate(addr_space_t* as, void* va, uint64_t* pa)
      * TODO: are barriers needed in this operation?
      */
 
-    par_saved = MRS(PAR_EL1);
+    par_saved = MRS(PAR_EL1); // 暂存物理地址寄存器PAR_EL1的值，后面再恢复
 
+    // 只需要stage2的地址翻译，在hypervisor中
     if (as->type == AS_HYP || as->type == AS_HYP_CPY)
         asm volatile("AT S1E2W, %0" ::"r"(va));
     else

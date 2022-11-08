@@ -412,6 +412,9 @@ static void mem_inflate_pt(addr_space_t *as, uint64_t va, uint64_t length)
     }
 }
 
+/*
+    分配大小为n的虚拟页
+*/
 void *mem_alloc_vpage(addr_space_t *as, enum AS_SEC section, void *at, size_t n)
 {
     int lvl = 0;
@@ -893,6 +896,9 @@ static size_t cpu_boot_alloc_size() {
     return size;
 }
 
+/*
+    设置root_pool.bitmap
+*/
 bool root_pool_set_up_bitmap(uint64_t load_addr)
 {
     size_t image_size = (size_t)(&_image_end - &_image_start);
@@ -909,7 +915,8 @@ bool root_pool_set_up_bitmap(uint64_t load_addr)
 
     // 通过root_pool.bitmap的起始地址和大小，构造一个物理页，该页大小不一定是4k
     ppages_t bitmap_pp = mem_ppages_get(bitmap_base, bitmap_size);
-    // 分配虚拟页，来保存bitmap TODO:
+    // 分配虚拟页，来保存bitmap 
+    // TODO:
     bitmap_t root_bitmap =
         mem_alloc_vpage(&cpu.as, SEC_HYP_GLOBAL, NULL, bitmap_size);
     if (root_bitmap == NULL) return false;

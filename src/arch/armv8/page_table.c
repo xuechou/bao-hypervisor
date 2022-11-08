@@ -43,13 +43,16 @@ page_table_dscr_t* vm_pt_dscr = &armv8_pt_s2_dscr;
 
 uint64_t parange __attribute__((section(".data")));
 
+/*
+    https://os.phil-opp.com/advanced-paging/#recursive-page-tables
+*/
 void pt_set_recursive(page_table_t* pt, uint64_t index)
 {
     uint64_t pa;
-    mem_translate(&cpu.as, pt->root, &pa);
+    mem_translate(&cpu.as, pt->root, &pa); // 求pt->root的物理地址
     pte_t* pte = cpu.as.pt.root + index;
     pte_set(pte, pa, PTE_TABLE, PTE_HYP_FLAGS);
-    pt->root_flags &= ~PT_ROOT_FLAGS_REC_IND_MSK;
+    pt->root_flags &= ~PT_ROOT_FLAGS_REC_IND_MSK; // why need this ??? do what ??
     pt->root_flags |=
         (index << PT_ROOT_FLAGS_REC_IND_OFF) & PT_ROOT_FLAGS_REC_IND_MSK;
 }
