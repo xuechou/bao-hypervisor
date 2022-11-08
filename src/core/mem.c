@@ -305,13 +305,18 @@ static inline bool pte_allocable(addr_space_t *as, pte_t *pte, uint64_t lvl,
             ((addr % pt_lvlsize(&as->pt, lvl)) == 0));
 }
 
+/*
+    申请页表页，并关联到上级页表的对应PTE
+*/
 static inline pte_t *mem_alloc_pt(addr_space_t *as, pte_t *parent, uint64_t lvl,
                                   uint64_t addr)
 {
     /* Must have lock on as and va section to call */
     size_t ptsize = pt_size(&as->pt, lvl) / PAGE_SIZE;
+    // 申请一个物理页来保存页表，也就是页表页
     ppages_t ppage = mem_alloc_ppages(as->colors, ptsize, ptsize > 1 ? true : false);
     if (ppage.size == 0) return NULL;
+    // 设置上级页表中对应的PTE
     pte_set(parent, ppage.base, PTE_TABLE, PTE_HYP_FLAGS);
     fence_sync_write();
     pte_t *temp_pt = pt_get(&as->pt, lvl + 1, (void *)addr);
@@ -394,6 +399,9 @@ static void mem_expand_pte(addr_space_t *as, uint64_t va, uint64_t lvl)
     }
 }
 
+/*
+    给定虚拟地址及其大小，配置4级页表 TODO: ???
+*/
 static void mem_inflate_pt(addr_space_t *as, uint64_t va, uint64_t length)
 {
     /* Must have lock on as and va section to call */
@@ -404,7 +412,7 @@ static void mem_inflate_pt(addr_space_t *as, uint64_t va, uint64_t length)
      */
     for (int lvl = 0; lvl < as->pt.dscr->lvls - 1; lvl++) {
         uint64_t vaddr = va;
-        uint64_t lvlsz = pt_lvlsize(&as->pt, lvl);
+        uint64_t lvlsz = pt_lvlsize(&as->pt, lvl); // 每级页表中一个表项代表多大的空间
         while (vaddr < (va + length)) {
             mem_expand_pte(as, vaddr, lvl);
             vaddr += lvlsz;
