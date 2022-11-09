@@ -284,6 +284,9 @@ ppages_t mem_alloc_ppages(uint64_t colors, size_t n, bool aligned)
     return pages;
 }
 
+/*
+    查虚拟地址位于哪个虚拟地址空间
+*/
 static section_t *mem_find_sec(addr_space_t *as, void *va)
 {
     for (int i = 0; i < sections[as->type].sec_size; i++) {
@@ -334,6 +337,9 @@ static inline bool pt_pte_mappable(addr_space_t *as, pte_t *pte, uint64_t lvl,
            ((paddr % pt_lvlsize(&as->pt, lvl)) == 0);
 }
 
+/*
+    分配新的页表页，并插入到va对应PTE
+*/
 static void mem_expand_pte(addr_space_t *as, uint64_t va, uint64_t lvl)
 {
     /* Must have lock on as and va section to call */
@@ -343,6 +349,7 @@ static void mem_expand_pte(addr_space_t *as, uint64_t va, uint64_t lvl)
         return;
     }
 
+    // 由va计算待插入的PTE
     pte_t *pte = pt_get_pte(&as->pt, lvl, (void *)va);
 
     /**
@@ -350,12 +357,13 @@ static void mem_expand_pte(addr_space_t *as, uint64_t va, uint64_t lvl)
      * a next level table already.
      */
     if (pte != NULL && !pte_table(&as->pt, pte, lvl)) {
-        pte_t pte_val = *pte;  // save the original pte
+        pte_t pte_val = *pte;  // save the original pte, TODO: why need this ?????
         bool rsv = pte_check_rsw(pte, PTE_RSW_RSRV);
         bool vld = pte_valid(pte);
-        pte = mem_alloc_pt(as, pte, lvl, va);
+        // 分配新的页表页
+        pte = mem_alloc_pt(as, pte, lvl, va); // TODO: ................
 
-        if (vld || rsv) {
+        if (vld || rsv) { // TODO: ?????
             /**
              *  If this was valid before and it wasn't a table, it must
              * have been a superpage, so fill the new expanded table to
@@ -373,9 +381,9 @@ static void mem_expand_pte(addr_space_t *as, uint64_t va, uint64_t lvl)
 
             /**
              *  Now traverse the new next level page table to replicate the
-             * original mapping.
+             * original mapping.  ??????
              */
-
+            // 处理下级页表 TODO: ???
             lvl++;
             uint64_t paddr = pte_addr(&pte_val);
             uint64_t entry = pt_getpteindex(&as->pt, pte, lvl);
@@ -400,7 +408,9 @@ static void mem_expand_pte(addr_space_t *as, uint64_t va, uint64_t lvl)
 }
 
 /*
-    给定虚拟地址及其大小，配置4级页表 TODO: ???
+    给定一段虚拟空间，配置4级页表
+    @va : 虚拟空间的首地址
+    @length : 空间大小，单位是byte
 */
 static void mem_inflate_pt(addr_space_t *as, uint64_t va, uint64_t length)
 {
@@ -412,9 +422,10 @@ static void mem_inflate_pt(addr_space_t *as, uint64_t va, uint64_t length)
      */
     for (int lvl = 0; lvl < as->pt.dscr->lvls - 1; lvl++) {
         uint64_t vaddr = va;
-        uint64_t lvlsz = pt_lvlsize(&as->pt, lvl); // 每级页表中一个表项代表多大的空间
+        // 计算当前等级页表中，每个表项代表多大的空间；e.g, every entry size in level 3 is 4kb
+        uint64_t lvlsz = pt_lvlsize(&as->pt, lvl); 
         while (vaddr < (va + length)) {
-            mem_expand_pte(as, vaddr, lvl);
+            mem_expand_pte(as, vaddr, lvl); // 插入table descriptor
             vaddr += lvlsz;
         }
     }
@@ -590,6 +601,9 @@ void mem_free_vpage(addr_space_t *as, void *at, size_t n, bool free_ppages)
     spin_unlock(&as->lock);
 }
 
+/*
+     'virtual space' map to 'physical sapce'
+*/
 int mem_map(addr_space_t *as, void *va, ppages_t *ppages, size_t n,
             uint64_t flags)
 {
@@ -599,6 +613,7 @@ int mem_map(addr_space_t *as, void *va, ppages_t *ppages, size_t n,
 
     section_t *sec = mem_find_sec(as, vaddr);
 
+    // 判断虚拟地址空间的首地址于尾地址，是否落在同一个虚拟地址空间
     if ((sec == NULL) || (sec != mem_find_sec(as, vaddr + n * PAGE_SIZE - 1)))
         return -1;
 
@@ -609,7 +624,7 @@ int mem_map(addr_space_t *as, void *va, ppages_t *ppages, size_t n,
      * TODO check if entry is reserved. Unrolling mapping if something
      * goes wrong.
      */
-
+    // 申请物理内存区域，如果入参中物理内存区域为空
     if (ppages == NULL && !all_clrs(as->colors)) {
         ppages_t temp = mem_alloc_ppages(as->colors, n, false);
         if (temp.size < n) ERROR("failed to alloc colored physical pages");
@@ -877,6 +892,10 @@ int mem_map_dev(addr_space_t *as, void *va, uint64_t base, size_t n)
                    as->type == AS_HYP ? PTE_HYP_DEV_FLAGS : PTE_VM_DEV_FLAGS);
 }
 
+/*
+    用户申请大小为n页的内存
+    先申请物理内存；再申请虚拟内存；最后完成映射
+*/
 void *mem_alloc_page(size_t n, enum AS_SEC sec, bool phys_aligned)
 {
     void *vpage = NULL;
