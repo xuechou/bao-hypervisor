@@ -17,6 +17,9 @@
 #include <arch/sysregs.h>
 #include <interrupts.h>
 
+/*
+    作用不明 ??? todo: ?? 检查可用的物理地址范围????
+*/
 void vmm_arch_init()
 {
     /**

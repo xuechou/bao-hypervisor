@@ -24,16 +24,18 @@
 #include <string.h>
 #include <ipc.h>
 
-struct config* vm_config_ptr;
+struct config* vm_config_ptr;  //  指向VMM的配置
 
 void vmm_init()
 {
+    // 检查VMM的配置中，虚拟机的数量 > 0
     if(vm_config_ptr->vmlist_size == 0){
         if(cpu.id == CPU_MASTER)
             INFO("No virtual machines to run.");
         cpu_idle();
     } 
     
+    // TODO: ????
     vmm_arch_init();
 
     volatile static struct vm_assignment {
@@ -65,12 +67,13 @@ void vmm_init()
     vm_config_t *vm_config = NULL;
 
     /**
-     * Assign cpus according to vm affinity.
+     * Assign cpus according to vm affinity. 
+     * 读入所有虚拟机的配置,存到vm_assign[]
      */
     for (int i = 0; i < vm_config_ptr->vmlist_size && !assigned; i++) {
         if (vm_config_ptr->vmlist[i].cpu_affinity & (1UL << cpu.id)) {
             spin_lock(&vm_assign[i].lock);
-            if (!vm_assign[i].master) {
+            if (!vm_assign[i].master) { // 选择第一个VM作为master ??
                 vm_assign[i].master = true;
                 vm_assign[i].ncpus++;
                 vm_assign[i].cpus |= (1UL << cpu.id);

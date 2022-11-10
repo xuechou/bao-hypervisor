@@ -47,7 +47,7 @@ static void vm_master_init(vm_t* vm, const vm_config_t* config, uint64_t vm_id)
 void vm_cpu_init(vm_t* vm)
 {
     spin_lock(&vm->lock);
-    vm->cpus |= (1UL << cpu.id);
+    vm->cpus |= (1UL << cpu.id); // bitmap ???
     spin_unlock(&vm->lock);
 }
 
@@ -244,6 +244,9 @@ static void vm_init_dev(vm_t* vm, const vm_config_t* config)
       
 }
 
+/*
+    读取配置，初始化某个VM
+*/
 void vm_init(vm_t* vm, const vm_config_t* config, bool master, uint64_t vm_id)
 {
     /**

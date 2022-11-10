@@ -28,6 +28,10 @@ volatile bao_uart_t uart
 bool ready = false;
 static spinlock_t print_lock = SPINLOCK_INITVAL;
 
+/*
+    初始化串口
+    为了能控制串口的寄存器，必须先把 “虚拟地址” 映射到 “串口寄存器所在的物理地址”
+*/
 void console_init()
 {
     if((platform.console.base & PAGE_OFFSET_MASK) != 0) {

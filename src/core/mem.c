@@ -885,6 +885,9 @@ bool mem_reserve_ppages(ppages_t *ppages)
     return mem_reserve_ppages_in_pool_list(&page_pool_list, ppages);
 }
 
+/*
+    外设所在物理内存能访问前，需要先添加虚拟内存的映射
+*/
 int mem_map_dev(addr_space_t *as, void *va, uint64_t base, size_t n)
 {
     ppages_t pages = mem_ppages_get(base, n);
