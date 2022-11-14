@@ -653,7 +653,7 @@ int mem_map(addr_space_t *as, void *va, ppages_t *ppages, size_t n,
             int lvl = 0;
             for (lvl = 0; lvl < as->pt.dscr->lvls; lvl++) {
                 pte = pt_get_pte(&as->pt, lvl, vaddr);
-                // todo:
+                // todo: ????
                 if (pt_lvl_terminal(&as->pt, lvl)) {
                     if (pt_pte_mappable(as, pte, lvl, n - count,
                                         (uint64_t)vaddr, ppages ? paddr : 0)) {
@@ -666,15 +666,17 @@ int mem_map(addr_space_t *as, void *va, ppages_t *ppages, size_t n,
                 }
             }
 
-            uint64_t entry = pt_getpteindex(&as->pt, pte, lvl);
-            uint64_t nentries = pt_nentries(&as->pt, lvl);
-            uint64_t lvlsz = pt_lvlsize(&as->pt, lvl);
+            uint64_t entry = pt_getpteindex(&as->pt, pte, lvl); // PTE在页表的索引
+            uint64_t nentries = pt_nentries(&as->pt, lvl); // 页表包含多少个PTE
+            uint64_t lvlsz = pt_lvlsize(&as->pt, lvl); // 每个PTE表示的物理块大小
 
+            // PTE没有超出当前页表 && 已映射的物理页数量 && 未映射物理页数量至少大于一个PTE表示物理块
             while ((entry < nentries) && (count < n) &&
                    (n - count >= lvlsz / PAGE_SIZE)) {
+                // 为什么ppages还能未空???
                 if (ppages == NULL) {
                     ppages_t temp =
-                        mem_alloc_ppages(as->colors, lvlsz / PAGE_SIZE, true);
+                        mem_alloc_ppages(as->colors, lvlsz / PAGE_SIZE, true); // 为什么不是分配n页???
                     if (temp.size < lvlsz / PAGE_SIZE) {
                         if (lvl == (as->pt.dscr->lvls - 1)) {
                             // TODO: free previously allocated pages
@@ -689,12 +691,13 @@ int mem_map(addr_space_t *as, void *va, ppages_t *ppages, size_t n,
                     }
                     paddr = temp.base;
                 }
+                // 实现映射，大小是当前PTE表示的物理块大小
                 pte_set(pte, paddr, pt_pte_type(&as->pt, lvl), flags);
-                vaddr += lvlsz;
-                paddr += lvlsz;
-                count += lvlsz / PAGE_SIZE;
-                pte++;
-                entry++;
+                vaddr += lvlsz; // 下个虚拟页地址
+                paddr += lvlsz; // 下个物理页地址
+                count += lvlsz / PAGE_SIZE; // 累加已映射的页数
+                pte++; // 下个PTE
+                entry++; // 下个PTE的在页表索引
             }
         }
     }

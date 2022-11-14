@@ -62,7 +62,8 @@ _reset_handler:
 
 	/* 
 	 * Install vector table physical address early, in case exception occurs
-	 * during this initialization.
+	 * during this initialization. 
+	 * 安装hypervisor的向量表，即EL2的向量表
 	 */
 	adr	x3, _hyp_vector_table
 	msr	VBAR_EL2, x3
@@ -164,6 +165,7 @@ _set_master_cpu:
 	str x6, [x4, x5]
 	
 	/* Set global root mappings for hypervisor image */
+	/* TODO: ????????????????? */
 
 	adr x4, root_l1_pt
 	ldr x5, =(PTE_INDEX(1, BAO_VAS_BASE)*8)
