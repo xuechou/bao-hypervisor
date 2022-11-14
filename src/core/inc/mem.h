@@ -82,6 +82,9 @@ static inline ppages_t mem_ppages_get(uint64_t base, uint64_t size)
     return (ppages_t){.colors = 0, .base = base, .size = size};
 }
 
+/*
+    TODO: ??
+*/
 static inline bool all_clrs(uint64_t clrs)
 {
     return (clrs == 0) ||

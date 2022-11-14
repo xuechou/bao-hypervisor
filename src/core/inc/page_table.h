@@ -37,26 +37,31 @@ typedef struct page_table {
 extern page_table_dscr_t* hyp_pt_dscr;
 extern page_table_dscr_t* vm_pt_dscr;
 
+/* 某级页表包含个PTE */
 static inline uint64_t pt_nentries(page_table_t* pt, size_t lvl)
 {
     return (1ULL << pt->dscr->lvl_wdt[lvl]) >> pt->dscr->lvl_off[lvl];
 }
 
+/* 某级页表中，一个PTE表示的内存块大小 */
 static inline uint64_t pt_lvlsize(page_table_t* pt, size_t lvl)
 {
     return 1ULL << pt->dscr->lvl_off[lvl];
 }
 
+/* 某级页表能表示的总内存块大小 */
 static inline uint64_t pt_size(page_table_t* pt, size_t lvl)
 {
     return pt_nentries(pt, lvl) * sizeof(pte_t);
 }
 
+/* 获取某个PTE在页表中的索引 */
 static inline uint64_t pt_getpteindex(page_table_t* pt, pte_t* pte, size_t lvl)
 {
     return (uint64_t)(((uint64_t)pte) & (pt_size(pt, lvl) - 1)) / sizeof(pte_t);
 }
 
+/* 获取VA对应的PTE，在页表中的索引 */
 static inline uint64_t pt_getpteindex_by_va(page_table_t* pt, void* va, 
     size_t lvl)
 {
@@ -64,6 +69,8 @@ static inline uint64_t pt_getpteindex_by_va(page_table_t* pt, void* va,
         (pt_nentries(pt, lvl) - 1);
 }
 
+/* [level 0, level 1, level 2, level 3] = [false , true ,true ,true] */
+// TODO: why need this ?
 static inline bool pt_lvl_terminal(page_table_t* pt, size_t lvl)
 {
     return pt->dscr->lvl_term[lvl];

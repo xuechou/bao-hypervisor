@@ -602,7 +602,7 @@ void mem_free_vpage(addr_space_t *as, void *at, size_t n, bool free_ppages)
 }
 
 /*
-     'virtual space' map to 'physical sapce'
+     N virtual pages ==> N physical pages
 */
 int mem_map(addr_space_t *as, void *va, ppages_t *ppages, size_t n,
             uint64_t flags)
@@ -613,7 +613,7 @@ int mem_map(addr_space_t *as, void *va, ppages_t *ppages, size_t n,
 
     section_t *sec = mem_find_sec(as, vaddr);
 
-    // 判断虚拟地址空间的首地址于尾地址，是否落在同一个虚拟地址空间
+    // 判断虚拟地址空间的首地址于尾地址，是否落在同一个section
     if ((sec == NULL) || (sec != mem_find_sec(as, vaddr + n * PAGE_SIZE - 1)))
         return -1;
 
@@ -624,30 +624,36 @@ int mem_map(addr_space_t *as, void *va, ppages_t *ppages, size_t n,
      * TODO check if entry is reserved. Unrolling mapping if something
      * goes wrong.
      */
-    // 申请物理内存区域，如果入参中物理内存区域为空
+    // 申请物理内存区域，如果入参中没有指定物理页
     if (ppages == NULL && !all_clrs(as->colors)) {
         ppages_t temp = mem_alloc_ppages(as->colors, n, false);
         if (temp.size < n) ERROR("failed to alloc colored physical pages");
         ppages = &temp;
     }
-
+    
+    // 物理页需要染色的分支
     if (ppages && !all_clrs(ppages->colors)) {
         uint64_t index = 0;
+        // 在多级页表中,为大小为n的虚拟页申请PTE
         mem_inflate_pt(as, (uint64_t)vaddr, n * PAGE_SIZE);
+        // 对每个虚拟页，设置末级页表对应PTE中的物理地址字段
         for (int i = 0; i < ppages->size; i++) {
+            // 找到末级页表中，虚拟页对应的PTE
             pte = pt_get_pte(&as->pt, as->pt.dscr->lvls - 1, vaddr);
+            // TODO:
             index = pp_next_clr(ppages->base, index, ppages->colors);
             uint64_t paddr = ppages->base + (index * PAGE_SIZE);
             pte_set(pte, paddr, PTE_PAGE, flags);
             vaddr += PAGE_SIZE;
             index++;
         }
-    } else {
-        uint64_t paddr = ppages ? ppages->base : 0;
+    } else { // 不需要染色的分支
+        uint64_t paddr = ppages ? ppages->base : 0; // ppages为null，则取0地址
         while (count < n) {
             int lvl = 0;
             for (lvl = 0; lvl < as->pt.dscr->lvls; lvl++) {
                 pte = pt_get_pte(&as->pt, lvl, vaddr);
+                // todo:
                 if (pt_lvl_terminal(&as->pt, lvl)) {
                     if (pt_pte_mappable(as, pte, lvl, n - count,
                                         (uint64_t)vaddr, ppages ? paddr : 0)) {
