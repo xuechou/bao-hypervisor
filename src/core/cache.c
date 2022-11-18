@@ -17,8 +17,9 @@
 
 static cache_t cache_dscr;
 
-size_t COLOR_NUM = 1;
-size_t COLOR_SIZE = 1;
+/* TODO: 哪个表示有多少种颜色??? */
+size_t COLOR_NUM = 1;   // 共有多少种颜色??
+size_t COLOR_SIZE = 1;  // 一种颜色表示的内存大小???
 
 static void cache_calc_colors(cache_t* dscrp, int page_size)
 {

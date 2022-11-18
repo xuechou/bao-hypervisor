@@ -31,6 +31,9 @@ inline void interrupts_cpu_sendipi(uint64_t target_cpu, uint64_t ipi_id)
     interrupts_arch_ipi_send(target_cpu, ipi_id);
 }
 
+/* 
+    给定中断ID，使能单个中断 
+*/
 inline void interrupts_cpu_enable(uint64_t int_id, bool en)
 {
     interrupts_arch_enable(int_id, en);

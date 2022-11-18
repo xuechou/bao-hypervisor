@@ -29,8 +29,13 @@ static spinlock_t gicr_lock;
 
 uint64_t NUM_LRS;
 
+/*
+    ICH_VTR_EL2.ListRegs : number of list register
+    https://developer.arm.com/documentation/ddi0595/2021-06/AArch64-Registers/ICH-VTR-EL2--Interrupt-Controller-VGIC-Type-Register
+*/
 uint64_t gich_num_lrs()
 {
+    // TODO: ListRegs is bits [4:0], but ICH_VTR_MSK is bits [6:0] 
     return ((MRS(ICH_VTR_EL2) & ICH_VTR_MSK) >> ICH_VTR_OFF) + 1;
 }
 
@@ -175,12 +180,18 @@ void gicc_restore_state(gicc_state_t *state)
     }
 }
 
+/*
+    分别配置GICR_x and ICC_x_ELn
+*/
 void gic_cpu_init()
 {
     gicr_init();
     gicc_init();
 }
 
+/*
+    分别映射GICD_x寄存器区域和GICR_x寄存器区域
+*/
 void gic_map_mmio()
 {
     mem_map_dev(&cpu.as, (void *)&gicd, platform.arch.gic.gicd_addr,

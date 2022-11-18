@@ -22,6 +22,9 @@
 volatile gicd_t gicd __attribute__((section(".devices"), aligned(PAGE_SIZE)));
 spinlock_t gicd_lock;
 
+/*
+    configure GICD_x register
+*/
 void gicd_init()
 {
     size_t int_num = gic_num_irqs();
@@ -76,13 +79,12 @@ void gic_init()
 {
     if (cpu.id == CPU_MASTER) {
         gic_map_mmio();
-        gicd_init();
+        gicd_init(); // config GICD_x
         NUM_LRS = gich_num_lrs();
     }
 
     cpu_sync_barrier(&cpu_glb_sync);
-
-    gic_cpu_init();
+    gic_cpu_init(); // config GICR_x and ICC_x_ELn
 }
 
 void gic_handle()

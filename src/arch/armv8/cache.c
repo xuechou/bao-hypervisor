@@ -19,6 +19,9 @@
 #include <bit.h>
 #include <platform.h>
 
+/*
+    TODO:
+*/
 void cache_arch_enumerate(cache_t *dscrp)
 {
     if(platform.cache.lvls != 0 ) {
