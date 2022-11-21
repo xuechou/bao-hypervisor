@@ -87,6 +87,9 @@ void gic_init()
     gic_cpu_init(); // config GICR_x and ICC_x_ELn
 }
 
+/*
+    interrupt process both in EL1 and EL2
+*/
 void gic_handle()
 {
     uint64_t ack = gicc_iar();

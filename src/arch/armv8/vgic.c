@@ -1066,6 +1066,9 @@ void vgic_handle_trapped_eoir(vcpu_t *vcpu)
     }
 }
 
+/*
+    TODO:
+*/
 void gic_maintenance_handler(uint64_t arg)
 {
     uint32_t misr = gich_get_misr();

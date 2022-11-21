@@ -21,8 +21,11 @@
 #include <bitmap.h>
 #include <string.h>
 
-BITMAP_ALLOC(hyp_interrupt_bitmap, MAX_INTERRUPTS);
-BITMAP_ALLOC(global_interrupt_bitmap, MAX_INTERRUPTS);
+/*
+    每个比特表示一个中断源
+*/
+BITMAP_ALLOC(hyp_interrupt_bitmap, MAX_INTERRUPTS); // hypervisor负责处理的中断源
+BITMAP_ALLOC(global_interrupt_bitmap, MAX_INTERRUPTS); // hypervisor和所有VM的中断源
 
 irq_handler_t interrupt_handlers[MAX_INTERRUPTS];
 
@@ -70,6 +73,9 @@ inline void interrupts_vm_inject(vm_t *vm, uint64_t id)
     interrupts_arch_vm_inject(vm, id);
 }
 
+/*
+    route irq to EL1 or EL2
+*/
 enum irq_res interrupts_handle(uint64_t int_id)
 {
     if (vm_has_interrupt(cpu.vcpu->vm, int_id)) {
@@ -99,6 +105,9 @@ void interrupts_vm_assign(vm_t *vm, uint64_t id)
     bitmap_set(global_interrupt_bitmap, id);
 }
 
+/*
+    对于hypervisor负责处理的中断源，设置对应的Handle并且更新bitmap的标记
+*/
 void interrupts_reserve(uint64_t int_id, irq_handler_t handler)
 {
     if (int_id < MAX_INTERRUPTS) {

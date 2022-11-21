@@ -32,7 +32,7 @@ void interrupts_arch_init()
 {
     gic_init();
     /*
-    enable maintenance interrupt
+    TODO: enable maintenance interrupt
     https://developer.arm.com/documentation/ihi0048/b/GIC-Support-for-Virtualization/Managing-the-GIC-virtual-CPU-interface/Maintenance-interrupts
     */
     interrupts_cpu_enable(platform.arch.gic.maintenance_id, true);
