@@ -28,14 +28,13 @@ struct config* vm_config_ptr;  //  指向VMM的配置
 
 void vmm_init()
 {
-    // 检查VMM的配置中，虚拟机的数量 > 0
+    // 用户至少配置1个VM
     if(vm_config_ptr->vmlist_size == 0){
         if(cpu.id == CPU_MASTER)
             INFO("No virtual machines to run.");
         cpu_idle();
     } 
     
-    // TODO: ????
     vmm_arch_init();
 
     volatile static struct vm_assignment {
@@ -46,7 +45,7 @@ void vmm_init()
         pte_t vm_shared_table;
     } * vm_assign;
 
-    size_t vmass_npages = 0;
+    size_t vmass_npages = 0; // TODO: 具体是什么大小?
     if (cpu.id == CPU_MASTER) {
         iommu_init();
 

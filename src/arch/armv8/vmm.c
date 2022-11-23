@@ -33,7 +33,7 @@ void vmm_arch_init()
      * machine.
      */
 
-    static uint64_t min_parange = 0b111;
+    static uint64_t min_parange = 0b111; // TODO: ????
     static spinlock_t lock = SPINLOCK_INITVAL;
 
     uint64_t temp_parange = MRS(ID_AA64MMFR0_EL1) & ID_AA64MMFR0_PAR_MSK;
@@ -45,6 +45,7 @@ void vmm_arch_init()
 
     cpu_sync_barrier(&cpu_glb_sync);
 
+    // TODO: ???
     if (cpu.id == CPU_MASTER) {
         parange = min_parange;
         if (parange_table[parange] < 44) {
@@ -59,7 +60,10 @@ void vmm_arch_init()
     }
 
     cpu_sync_barrier(&cpu_glb_sync);
-
+    
+    /*
+        VTCR_EL2: The control register for stage 2 of the EL1&0 translation regime.
+    */ 
     uint64_t vtcr = VTCR_RES1 | ((parange << VTCR_PS_OFF) & VTCR_PS_MSK) |
                     VTCR_TG0_4K | VTCR_ORGN0_WB_RA_WA | VTCR_IRGN0_WB_RA_WA |
                     VTCR_T0SZ(64 - parange_table[parange]) | VTCR_SH0_IS |
@@ -67,6 +71,9 @@ void vmm_arch_init()
 
     MSR(VTCR_EL2, vtcr);
 
+    /*
+        HCR_EL2: Provides configuration controls for virtualization, including defining whether various operations are trapped to EL2.
+    */ 
     uint64_t hcr = HCR_VM_BIT | HCR_RW_BIT | HCR_IMO_BIT | HCR_FMO_BIT |
                    HCR_TSC_BIT; /* trap smc */
 
