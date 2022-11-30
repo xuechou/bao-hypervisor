@@ -73,6 +73,9 @@ static void ipc_handler(uint32_t event, uint64_t data){
 }
 CPU_MSG_HANDLER(ipc_handler, IPC_CPUSMG_ID);
 
+/*
+    One of HVC handler
+*/
 int64_t ipc_hypercall(uint64_t arg0, uint64_t arg1, uint64_t arg2)
 {
     uint64_t ipc_id = arg0;
@@ -89,16 +92,17 @@ int64_t ipc_hypercall(uint64_t arg0, uint64_t arg1, uint64_t arg2)
     if(valid_ipc_obj && valid_shmem) {
 
         uint64_t ipc_cpu_masters = shmem->cpu_masters & ~cpu.vcpu->vm->cpus;
-
+        // 構造消息
         ipc_msg_data_t data = {
             .shmem_id = cpu.vcpu->vm->ipcs[ipc_id].shmem_id,
             .event_id = ipc_event,
         };
         cpu_msg_t msg = {IPC_CPUSMG_ID, IPC_NOTIFY, data.raw};
 
+        // ???????????????????
         for (int i = 0; i < platform.cpu_num; i++) {
             if (ipc_cpu_masters & (1ULL << i)) {
-                cpu_send_msg(i, &msg);
+                cpu_send_msg(i, &msg); // TODO: why target CPU is i ???????
             }
         }
 
@@ -109,6 +113,9 @@ int64_t ipc_hypercall(uint64_t arg0, uint64_t arg1, uint64_t arg2)
     return ret;
 }
 
+/*
+    給每一塊共享内存，分配空間
+*/
 static void ipc_alloc_shmem() {
     for (int i = 0; i < shmem_table_size; i++) {
         shmem_t *shmem = &shmem_table[i];
@@ -123,6 +130,10 @@ static void ipc_alloc_shmem() {
     }
 }
 
+/*
+    記住VM's master core到cpu_masters
+    因爲只有master core負責發送跨VM的消息
+*/
 static void ipc_setup_masters(const vm_config_t* vm_config, bool vm_master) {
     
     static spinlock_t lock = SPINLOCK_INITVAL;
@@ -145,6 +156,9 @@ static void ipc_setup_masters(const vm_config_t* vm_config, bool vm_master) {
     }
 }
 
+/*
+    VM間的通信的初始化
+*/
 void ipc_init(const vm_config_t* vm_config, bool vm_master) {
 
     shmem_table_size = vm_config_ptr->shmemlist_size;

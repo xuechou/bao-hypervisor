@@ -59,12 +59,15 @@ void cpu_init(uint64_t cpu_id, uint64_t load_addr)
     cpu_sync_barrier(&cpu_glb_sync);
 }
 
+/*
+    send message to target CPU
+*/
 void cpu_send_msg(uint64_t trgtcpu, cpu_msg_t *msg)
 {
     cpu_msg_node_t *node = objcache_alloc(&msg_cache);
     if (node == NULL) ERROR("cant allocate msg node");
     node->msg = *msg;
-    list_push(&cpu_if(trgtcpu)->event_list, (node_t *)node);
+    list_push(&cpu_if(trgtcpu)->event_list, (node_t *)node); // 共享的消息區插入消息
     fence_sync_write();
     interrupts_cpu_sendipi(trgtcpu, IPI_CPU_MSG);
 }
@@ -81,6 +84,9 @@ bool cpu_get_msg(cpu_msg_t *msg)
     return false;
 }
 
+/*
+    获取消息，并调用消息中的函数指针
+*/
 void cpu_msg_handler()
 {
     cpu_msg_t msg;
