@@ -19,7 +19,7 @@
 #include <bao.h>
 #include <arch/cache.h>
 
-// TODO: ???
+// TODO: 最多8层cache，这么夸张？
 typedef struct cache {
     size_t lvls;
     size_t min_shared_lvl;

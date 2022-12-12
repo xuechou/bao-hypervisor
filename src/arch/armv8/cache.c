@@ -20,7 +20,7 @@
 #include <platform.h>
 
 /*
-    TODO:
+    TODO: 初始化dscrp来保存cache信息
 */
 void cache_arch_enumerate(cache_t *dscrp)
 {
@@ -38,7 +38,8 @@ void cache_arch_enumerate(cache_t *dscrp)
 
     dscrp->lvls = 0;
 
-    clidr = MRS(CLIDR_EL1);
+    // Cache-Level-ID-Register, https://developer.arm.com/documentation/ddi0595/2021-06/AArch64-Registers/CLIDR-EL1--Cache-Level-ID-Register
+    clidr = MRS(CLIDR_EL1); 
     for(int i = 0; i < CLIDR_CTYPE_NUM; i++){
         if((temp = bit_extract(clidr, i*CLIDR_CTYPE_LEN, CLIDR_CTYPE_LEN)) != 0){
             dscrp->lvls++;
@@ -50,7 +51,7 @@ void cache_arch_enumerate(cache_t *dscrp)
                 dscrp->type[i] = DATA;
                 break;
                 case CLIDR_CTYPE_SP:
-                dscrp->type[i] = SEPARATE;
+                dscrp->type[i] = SEPARATE; // 既包含数据缓存，亦包含指令缓存
                 break;
                 case CLIDR_CTYPE_UN:
                 dscrp->type[i] = UNIFIED;
@@ -66,7 +67,7 @@ void cache_arch_enumerate(cache_t *dscrp)
         uint64_t csselr = 0;
         uint64_t ccsidr = 0;
         uint64_t ctr = 0;
-        csselr = bit_insert(csselr, lvl, CSSELR_LVL_OFF, CSSELR_LVL_LEN);
+        csselr = bit_insert(csselr, lvl, CSSELR_LVL_OFF, CSSELR_LVL_LEN); // 构造寄存器CSSELR_EL1
 
         if(dscrp->type[lvl] == UNIFIED && first_unified == false){
             first_unified = true;
@@ -75,8 +76,8 @@ void cache_arch_enumerate(cache_t *dscrp)
 
         if(dscrp->type[lvl] != INSTRUCTION){
             csselr = bit_clear(csselr, CSSELR_IND_BIT);
-            MSR(CSSELR_EL1, csselr);
-            ccsidr = MRS(CCSIDR_EL1);
+            MSR(CSSELR_EL1, csselr); // Cache Size Selection Register https://developer.arm.com/documentation/100403/0200/register-descriptions/aarch64-system-registers/csselr-el1--cache-size-selection-register--el1
+            ccsidr = MRS(CCSIDR_EL1); // Current Cache Size ID Register https://developer.arm.com/documentation/ddi0595/2021-06/AArch64-Registers/CCSIDR-EL1--Current-Cache-Size-ID-Register
 
             dscrp->line_size[lvl][0] = 1UL << (bit_extract(ccsidr, 
                 CCSIDR_LINESIZE_OFF, CCSIDR_LINESIZE_LEN) + 4);
@@ -100,7 +101,7 @@ void cache_arch_enumerate(cache_t *dscrp)
             dscrp->numset[lvl][1] = bit_extract(ccsidr, CCSIDR_NUMSETS_OFF, 
                 CCSIDR_NUMSETS_LEN) + 1;
 
-            ctr = MRS(CTR_EL0);
+            ctr = MRS(CTR_EL0); // Cache Type Register https://developer.arm.com/documentation/ddi0601/2020-12/AArch64-Registers/CTR-EL0--Cache-Type-Register
             if((ctr & BIT_MASK(CTR_L1LP_OFF, CTR_L1LP_LEN)) == CTR_L1LP_PIPT){
                 dscrp->indexed[lvl][1] = PIPT;
             } else {
