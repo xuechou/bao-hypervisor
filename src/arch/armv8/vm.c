@@ -53,6 +53,7 @@ void vcpu_arch_init(vcpu_t* vcpu, vm_t* vm)
 
     uint64_t root_pt_pa;
     mem_translate(&cpu.as, vm->as.pt.root, &root_pt_pa);
+    /* Set stage 1 addr translation base */
     MSR(VTTBR_EL2, ((vm->id << VTTBR_VMID_OFF) & VTTBR_VMID_MSK) |
                        (root_pt_pa & ~VTTBR_VMID_MSK));
 

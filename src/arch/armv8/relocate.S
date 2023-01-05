@@ -106,7 +106,7 @@ switch_space:
      * Update TTBR
      */
 
-    /* Update value of TTBR0_EL2 */
+    /* Update value of TTBR0_EL2 */ /* stage 2 address translation table base */
 	msr TTBR0_EL2, x1
     dsb ish
     isb
